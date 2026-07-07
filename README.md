@@ -1,2 +1,2 @@
 # Vesper
-AI-powered financial intelligence platform
+Financial Intelligence Platform for Risk, Analytics & AI
