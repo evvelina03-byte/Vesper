@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import engine, Base
-from routers import auth, dashboard
+from routers import auth, dashboard, credit_risk
 import models
 
 # Create all tables
@@ -25,6 +25,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth.router)
 app.include_router(dashboard.router)
+app.include_router(credit_risk.router)
 
 
 @app.get("/")

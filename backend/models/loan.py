@@ -17,7 +17,7 @@ class LoanApplication(Base):
     __tablename__ = "loan_applications"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=False)
+    customer_id = Column(UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True)
 
     # Applicant features
     age = Column(Integer)
