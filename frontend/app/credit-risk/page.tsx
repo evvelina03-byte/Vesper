@@ -18,15 +18,15 @@ interface PredictionResult {
 }
 
 const defaultForm = {
-  age: 35,
-  income: 75000,
-  loan_amount: 25000,
-  loan_term: 36,
-  credit_score: 680,
-  employment_years: 5,
-  debt_to_income: 0.35,
-  num_credit_lines: 4,
-  num_delinquencies: 0,
+  age: '35',
+  income: '75000',
+  loan_amount: '25000',
+  loan_term: '36',
+  credit_score: '680',
+  employment_years: '5',
+  debt_to_income: '0.35',
+  num_credit_lines: '4',
+  num_delinquencies: '0',
   loan_purpose: 'personal',
 };
 
@@ -40,10 +40,22 @@ export default function CreditRisk() {
     setLoading(true);
     setError(null);
     try {
+      const payload = {
+        age: parseInt(form.age) || 0,
+        income: parseFloat(form.income) || 0,
+        loan_amount: parseFloat(form.loan_amount) || 0,
+        loan_term: parseInt(form.loan_term) || 0,
+        credit_score: parseInt(form.credit_score) || 0,
+        employment_years: parseFloat(form.employment_years) || 0,
+        debt_to_income: parseFloat(form.debt_to_income) || 0,
+        num_credit_lines: parseInt(form.num_credit_lines) || 0,
+        num_delinquencies: parseInt(form.num_delinquencies) || 0,
+        loan_purpose: form.loan_purpose,
+      };
       const res = await fetch('http://127.0.0.1:8000/credit-risk/predict', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Prediction failed');
       const data = await res.json();
@@ -72,9 +84,20 @@ export default function CreditRisk() {
     letterSpacing: '0.6px', marginBottom: '6px', display: 'block',
   };
 
+  const fields = [
+    { key: 'age', label: 'Age' },
+    { key: 'credit_score', label: 'Credit Score' },
+    { key: 'income', label: 'Annual Income ($)' },
+    { key: 'loan_amount', label: 'Loan Amount ($)' },
+    { key: 'loan_term', label: 'Loan Term (months)' },
+    { key: 'employment_years', label: 'Employment Years' },
+    { key: 'debt_to_income', label: 'Debt-to-Income Ratio' },
+    { key: 'num_credit_lines', label: 'Credit Lines' },
+    { key: 'num_delinquencies', label: 'Delinquencies' },
+  ];
+
   return (
     <div style={{ padding: '24px 28px' }}>
-      {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.3px' }}>Credit Risk Analytics</div>
         <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>
@@ -83,33 +106,21 @@ export default function CreditRisk() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-        {/* Form */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px' }}>
           <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '18px' }}>Loan Application</div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-            {[
-              { key: 'age', label: 'Age', type: 'number' },
-              { key: 'credit_score', label: 'Credit Score', type: 'number' },
-              { key: 'income', label: 'Annual Income ($)', type: 'number' },
-              { key: 'loan_amount', label: 'Loan Amount ($)', type: 'number' },
-              { key: 'loan_term', label: 'Loan Term (months)', type: 'number' },
-              { key: 'employment_years', label: 'Employment Years', type: 'number' },
-              { key: 'debt_to_income', label: 'Debt-to-Income Ratio', type: 'number' },
-              { key: 'num_credit_lines', label: 'Credit Lines', type: 'number' },
-              { key: 'num_delinquencies', label: 'Delinquencies', type: 'number' },
-            ].map(field => (
+            {fields.map(field => (
               <div key={field.key}>
                 <label style={labelStyle}>{field.label}</label>
                 <input
-                  type={field.type}
+                  type="text"
+                  inputMode="decimal"
                   value={(form as any)[field.key]}
-                  onChange={e => setForm({ ...form, [field.key]: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setForm({ ...form, [field.key]: e.target.value })}
                   style={inputStyle}
                 />
               </div>
             ))}
-
             <div>
               <label style={labelStyle}>Loan Purpose</label>
               <select
@@ -145,11 +156,9 @@ export default function CreditRisk() {
           )}
         </div>
 
-        {/* Results */}
         <div>
           {result ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Recommendation */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>Decision</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
@@ -160,11 +169,8 @@ export default function CreditRisk() {
                   }}>
                     {result.recommendation}
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text2)' }}>
-                    Model: {result.model_version}
-                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text2)' }}>Model: {result.model_version}</div>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div style={{ background: 'var(--surface2)', borderRadius: '8px', padding: '12px' }}>
                     <div style={{ fontSize: '10px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px' }}>Risk Score</div>
@@ -183,7 +189,6 @@ export default function CreditRisk() {
                 </div>
               </div>
 
-              {/* SHAP */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '20px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>SHAP Explainability</div>
                 <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>
