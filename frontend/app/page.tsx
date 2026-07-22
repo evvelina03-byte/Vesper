@@ -1,25 +1,39 @@
-export default function Dashboard() {
-  const kpis = [
-    { label: 'Total Assets', value: '$4.82B', change: '+2.4% vs last month', up: true },
-    { label: 'Loan Portfolio', value: '$1.23B', change: '+$84M this quarter', up: true },
-    { label: 'Default Rate', value: '3.2%', change: '+0.4pp vs prior year', up: false },
-    { label: 'Portfolio Return', value: '+11.7%', change: 'Sharpe ratio 1.42', up: true },
-    { label: 'Fraud Alerts', value: '3', change: '2 high severity', up: false },
-    { label: 'Customer Growth', value: '+1,240', change: '+8.3% MoM', up: true },
-    { label: 'Revenue (YTD)', value: '$48.2M', change: '+14.1% YoY', up: true },
-    { label: 'Portfolio VaR', value: '$2.1M', change: '95% confidence, 1-day', up: null },
-  ];
+import { getDashboardSummary, getFraudAlerts } from '../lib/api';
 
-  const alerts = [
-    { id: 'TX-48291', amount: '$12,400', merchant: 'ElectroMart', score: 0.97, high: true },
-    { id: 'TX-48104', amount: '$8,750', merchant: 'CryptoExchange', score: 0.94, high: true },
-    { id: 'TX-47880', amount: '$3,200', merchant: 'IntlWireTransfer', score: 0.71, high: false },
+function formatCurrency(value: number) {
+  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value}`;
+}
+
+export default async function Dashboard() {
+  const [summary, alerts] = await Promise.all([
+    getDashboardSummary(),
+    getFraudAlerts(),
+  ]);
+
+  const kpis = [
+    { label: 'Total Assets', value: formatCurrency(summary.total_assets), change: '+2.4% vs last month', up: true },
+    { label: 'Loan Portfolio', value: formatCurrency(summary.loan_portfolio), change: '+$84M this quarter', up: true },
+    { label: 'Default Rate', value: `${summary.default_rate}%`, change: '+0.4pp vs prior year', up: false },
+    { label: 'Portfolio Return', value: `+${summary.portfolio_return}%`, change: `Sharpe ratio ${summary.sharpe_ratio}`, up: true },
+    { label: 'Fraud Alerts', value: String(summary.fraud_alerts), change: `${summary.high_severity_alerts} high severity`, up: false },
+    { label: 'Customer Growth', value: `+${summary.customer_count}`, change: '+8.3% MoM', up: true },
+    { label: 'Revenue (YTD)', value: formatCurrency(summary.revenue_ytd), change: '+14.1% YoY', up: true },
+    { label: 'Portfolio VaR', value: formatCurrency(summary.var_95), change: '95% confidence, 1-day', up: null },
   ];
 
   const insights = [
     { color: 'var(--red)', title: 'Default risk rising in Segment B.', body: 'Loan defaults increased 18% among 25–34 customers following the May rate hike.', label: 'Credit Risk · High priority' },
     { color: 'var(--amber)', title: 'Region A acquisition cost exceeds LTV.', body: 'CAC of $340 vs 12-month LTV of $290. Current marketing spend is net-negative.', label: 'Business Intelligence · Medium priority' },
-    { color: 'var(--green)', title: 'Portfolio Sharpe improved 0.31 points', body: 'After Q2 rebalancing away from energy. Tech + healthcare now exceeds benchmark by 12pp.', label: 'Portfolio Analytics · Positive signal' },
+    { color: 'var(--green)', title: 'Portfolio Sharpe improved 0.31 points.', body: 'After Q2 rebalancing away from energy. Tech + healthcare now exceeds benchmark by 12pp.', label: 'Portfolio Analytics · Positive signal' },
+  ];
+
+  const fraudAlerts = alerts.length > 0 ? alerts : [
+    { id: 'TX-48291', amount: 12400, merchant: 'ElectroMart', fraud_score: 0.97, is_high: true },
+    { id: 'TX-48104', amount: 8750, merchant: 'CryptoExchange', fraud_score: 0.94, is_high: true },
+    { id: 'TX-47880', amount: 3200, merchant: 'IntlWireTransfer', fraud_score: 0.71, is_high: false },
   ];
 
   return (
@@ -36,7 +50,7 @@ export default function Dashboard() {
             padding: '5px 11px', borderRadius: '6px', fontSize: '12px', fontWeight: 500,
             background: 'rgba(220,38,38,0.1)', color: '#f87171',
             border: '1px solid rgba(220,38,38,0.2)',
-          }}>⚠ 3 fraud alerts</div>
+          }}>⚠ {summary.fraud_alerts} fraud alerts</div>
           <button style={{
             padding: '6px 12px', borderRadius: '6px', fontSize: '12px',
             border: '1px solid var(--border2)', background: 'var(--surface)',
@@ -71,26 +85,26 @@ export default function Dashboard() {
         {/* Fraud Alerts */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
           <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>Fraud Alerts</div>
-          {alerts.map((alert, i) => (
+          {fraudAlerts.map((alert: any, i: number) => (
             <div key={i} style={{
               display: 'flex', alignItems: 'flex-start', gap: '10px',
-              padding: '11px 0', borderBottom: i < alerts.length - 1 ? '1px solid var(--border)' : 'none',
+              padding: '11px 0', borderBottom: i < fraudAlerts.length - 1 ? '1px solid var(--border)' : 'none',
             }}>
               <div style={{
                 width: '30px', height: '30px', borderRadius: '7px', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
-                background: alert.high ? 'rgba(220,38,38,0.1)' : 'rgba(217,119,6,0.1)',
-                color: alert.high ? '#f87171' : '#fbbf24',
+                background: alert.is_high ? 'rgba(220,38,38,0.1)' : 'rgba(217,119,6,0.1)',
+                color: alert.is_high ? '#f87171' : '#fbbf24',
               }}>⚠</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '12px', fontWeight: 500 }}>Transaction #{alert.id}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>{alert.amount} · {alert.merchant}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '2px' }}>{formatCurrency(alert.amount)} · {alert.merchant}</div>
               </div>
               <div style={{
                 fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '5px', flexShrink: 0,
-                background: alert.high ? 'rgba(220,38,38,0.12)' : 'rgba(217,119,6,0.12)',
-                color: alert.high ? '#f87171' : '#fbbf24',
-              }}>{alert.score}</div>
+                background: alert.is_high ? 'rgba(220,38,38,0.12)' : 'rgba(217,119,6,0.12)',
+                color: alert.is_high ? '#f87171' : '#fbbf24',
+              }}>{alert.fraud_score}</div>
             </div>
           ))}
         </div>
