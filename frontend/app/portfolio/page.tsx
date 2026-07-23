@@ -147,16 +147,16 @@ export default function Portfolio() {
 
               <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'var(--surface2)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '8px' }}>Optimized vs Equal Weight</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '11px' }}>
-                  <div style={{ color: 'var(--text3)' }}>Metric</div>
-                  <div style={{ color: 'var(--text3)' }}>Optimized</div>
-                  <div style={{ color: 'var(--text3)' }}>Equal</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', fontSize: '11px' }}>
+                  <div style={{ color: 'var(--text3)', fontWeight: 500 }}>Metric</div>
+                  <div style={{ color: 'var(--text3)', fontWeight: 500 }}>Optimized</div>
+                  <div style={{ color: 'var(--text3)', fontWeight: 500 }}>Equal</div>
                   {comparisonRows.map(row => (
-                    <>
-                      <div key={`label-${row.label}`} style={{ color: 'var(--text2)' }}>{row.label}</div>
-                      <div key={`opt-${row.label}`} style={{ color: row.better ? '#4ade80' : '#f87171', fontWeight: 500 }}>{row.opt}</div>
-                      <div key={`eq-${row.label}`} style={{ color: 'var(--text3)' }}>{row.eq}</div>
-                    </>
+                    <div key={row.label} style={{ display: 'contents' }}>
+                      <div style={{ color: 'var(--text2)', padding: '3px 0' }}>{row.label}</div>
+                      <div style={{ color: row.better ? '#4ade80' : '#f87171', fontWeight: 500, padding: '3px 0' }}>{row.opt}</div>
+                      <div style={{ color: 'var(--text3)', padding: '3px 0' }}>{row.eq}</div>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -8,6 +8,7 @@ const navItems = [
   { label: 'Credit Risk', href: '/credit-risk', icon: '⊕' },
   { label: 'Fraud Detection', href: '/fraud', icon: '◎' },
   { label: 'Portfolio', href: '/portfolio', icon: '↗' },
+  { label: 'Options', href: '/options', icon: '◬' },
   { label: 'AI Assistant', href: '/assistant', icon: '✦' },
   { label: 'Markets', href: '/market', icon: '◈' },
   { label: 'Intelligence', href: '/intelligence', icon: '≡' },
@@ -52,7 +53,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav style={{ padding: '12px 10px', flex: 1 }}>
+      <nav style={{ padding: '12px 10px', flex: 1, overflowY: 'auto' }}>
         <div style={{ fontSize: '10px', color: 'var(--text3)', padding: '10px 10px 4px', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
           Overview
         </div>
