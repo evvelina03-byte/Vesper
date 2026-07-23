@@ -57,6 +57,12 @@ export default function Portfolio() {
     color: 'var(--text)', fontSize: '13px', outline: 'none',
   };
 
+  const comparisonRows = result ? [
+    { label: 'Return', opt: `${result.metrics.annual_return}%`, eq: `${result.equal_weight_metrics.annual_return}%`, better: result.metrics.annual_return > result.equal_weight_metrics.annual_return },
+    { label: 'Volatility', opt: `${result.metrics.annual_volatility}%`, eq: `${result.equal_weight_metrics.annual_volatility}%`, better: result.metrics.annual_volatility < result.equal_weight_metrics.annual_volatility },
+    { label: 'Sharpe', opt: result.metrics.sharpe_ratio.toFixed(2), eq: result.equal_weight_metrics.sharpe_ratio.toFixed(2), better: result.metrics.sharpe_ratio > result.equal_weight_metrics.sharpe_ratio },
+  ] : [];
+
   return (
     <div style={{ padding: '24px 28px' }}>
       <div style={{ marginBottom: '24px' }}>
@@ -66,7 +72,6 @@ export default function Portfolio() {
         </div>
       </div>
 
-      {/* Input */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ flex: 1 }}>
@@ -104,7 +109,6 @@ export default function Portfolio() {
 
       {result && (
         <>
-          {/* Metrics */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
               { label: 'Annual Return', value: `${result.metrics.annual_return}%`, color: result.metrics.annual_return > 0 ? '#4ade80' : '#f87171' },
@@ -121,7 +125,6 @@ export default function Portfolio() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-            {/* Weights */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>Optimized Allocation</div>
               {result.tickers.map((ticker, i) => {
@@ -142,34 +145,23 @@ export default function Portfolio() {
                 );
               })}
 
-              {/* Comparison */}
               <div style={{ marginTop: '16px', padding: '12px', borderRadius: '8px', background: 'var(--surface2)' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '8px' }}>Optimized vs Equal Weight</div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '11px' }}>
-                  <div></div>
+                  <div style={{ color: 'var(--text3)' }}>Metric</div>
                   <div style={{ color: 'var(--text3)' }}>Optimized</div>
                   <div style={{ color: 'var(--text3)' }}>Equal</div>
-                  {['Return', 'Volatility', 'Sharpe'].map((metric, i) => {
-                    const optVal = i === 0 ? result.metrics.annual_return : i === 1 ? result.metrics.annual_volatility : result.metrics.sharpe_ratio;
-                    const eqVal = i === 0 ? result.equal_weight_metrics.annual_return : i === 1 ? result.equal_weight_metrics.annual_volatility : result.equal_weight_metrics.sharpe_ratio;
-                    const better = i === 1 ? optVal < eqVal : optVal > eqVal;
-                    return (
-                      <>
-                        <div key={`l-${i}`} style={{ color: 'var(--text2)' }}>{metric}</div>
-                        <div key={`o-${i}`} style={{ color: better ? '#4ade80' : '#f87171', fontWeight: 500 }}>
-                          {typeof optVal === 'number' ? (i === 2 ? optVal.toFixed(2) : `${optVal}%`) : optVal}
-                        </div>
-                        <div key={`e-${i}`} style={{ color: 'var(--text3)' }}>
-                          {typeof eqVal === 'number' ? (i === 2 ? eqVal.toFixed(2) : `${eqVal}%`) : eqVal}
-                        </div>
-                      </>
-                    );
-                  })}
+                  {comparisonRows.map(row => (
+                    <>
+                      <div key={`label-${row.label}`} style={{ color: 'var(--text2)' }}>{row.label}</div>
+                      <div key={`opt-${row.label}`} style={{ color: row.better ? '#4ade80' : '#f87171', fontWeight: 500 }}>{row.opt}</div>
+                      <div key={`eq-${row.label}`} style={{ color: 'var(--text3)' }}>{row.eq}</div>
+                    </>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Efficient Frontier */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Efficient Frontier</div>
               <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>Risk vs Return tradeoff</div>
@@ -189,7 +181,6 @@ export default function Portfolio() {
             </div>
           </div>
 
-          {/* Historical performance */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
             <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Portfolio Performance (60 days)</div>
             <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>Cumulative return of optimized portfolio</div>

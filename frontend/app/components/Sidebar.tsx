@@ -9,6 +9,7 @@ const navItems = [
   { label: 'Fraud Detection', href: '/fraud', icon: '◎' },
   { label: 'Portfolio', href: '/portfolio', icon: '↗' },
   { label: 'AI Assistant', href: '/assistant', icon: '✦' },
+  { label: 'Markets', href: '/market', icon: '◈' },
   { label: 'Intelligence', href: '/intelligence', icon: '≡' },
 ];
 
