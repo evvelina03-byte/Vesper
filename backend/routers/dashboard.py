@@ -63,8 +63,8 @@ def get_fraud_alerts(db: Session = Depends(get_db)):
             "amount": t.amount,
             "merchant": t.merchant_name or t.merchant_category,
             "fraud_score": t.fraud_score,
-            "is_high": t.fraud_score >= 0.9 if t.fraud_score else False,
-            "timestamp": t.timestamp.isoformat() if t.timestamp else None,
+            "is_high": t.fraud_score is not None and t.fraud_score >= 0.9,
+            "timestamp": t.timestamp.isoformat() if t.timestamp is not None else None,
         }
         for t in flagged
     ]
