@@ -2,10 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import engine, Base
-from routers import auth, dashboard, credit_risk, fraud, portfolio, documents, market, options
+from routers import auth, dashboard, credit_risk, fraud, portfolio, documents, market, options, backtesting
 import models
 
-# Create all tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -22,7 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(credit_risk.router)
@@ -31,16 +29,11 @@ app.include_router(portfolio.router)
 app.include_router(documents.router)
 app.include_router(market.router)
 app.include_router(options.router)
-
+app.include_router(backtesting.router)
 
 @app.get("/")
 def root():
-    return {
-        "platform": "Vesper",
-        "status": "operational",
-        "version": "1.0.0",
-    }
-
+    return {"platform": "Vesper", "status": "operational", "version": "1.0.0"}
 
 @app.get("/health")
 def health():
