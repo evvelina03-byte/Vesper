@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import engine, Base
-from routers import auth, dashboard, credit_risk, fraud, portfolio, documents, market, options, backtesting, intelligence, simulator
+from routers import auth, dashboard, credit_risk, fraud, portfolio, documents, market, options, backtesting, intelligence, simulator, valuation
 import models
 
 Base.metadata.create_all(bind=engine)
@@ -32,6 +32,7 @@ app.include_router(options.router)
 app.include_router(backtesting.router)
 app.include_router(intelligence.router)
 app.include_router(simulator.router)
+app.include_router(valuation.router)
 
 @app.get("/")
 def root():
