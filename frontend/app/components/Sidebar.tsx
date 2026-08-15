@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Portfolio', href: '/portfolio', icon: '↗' },
   { label: 'Options', href: '/options', icon: '◬' },
   { label: 'Backtesting', href: '/backtesting', icon: '⟳' },
+  { label: 'Simulator', href: '/simulator', icon: '◐' },
   { label: 'AI Assistant', href: '/assistant', icon: '✦' },
   { label: 'Markets', href: '/market', icon: '◈' },
   { label: 'Intelligence', href: '/intelligence', icon: '≡' },
