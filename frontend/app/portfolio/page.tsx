@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ScatterChart, Scatter, CartesianGrid } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ScatterChart, Scatter, CartesianGrid, Legend } from 'recharts';
 
 interface PortfolioResult {
   tickers: string[];
@@ -11,7 +11,10 @@ interface PortfolioResult {
     annual_return: number;
     annual_volatility: number;
     sharpe_ratio: number;
+    sortino_ratio: number;
+    calmar_ratio: number;
     var_95_daily: number;
+    cvar_95_daily: number;
     max_drawdown: number;
   };
   equal_weight_metrics: {
@@ -19,6 +22,16 @@ interface PortfolioResult {
     annual_volatility: number;
     sharpe_ratio: number;
   };
+  benchmark: {
+    ticker: string;
+    annual_return: number;
+    volatility: number;
+    sharpe_ratio: number;
+    tracking_error: number;
+    information_ratio: number;
+    alpha: number;
+    history: Array<{ date: string; value: number }>;
+  } | null;
   frontier: Array<{ return: number; volatility: number; sharpe: number }>;
   history: Array<{ date: string; value: number }>;
 }
@@ -27,6 +40,7 @@ const COLORS = ['#1a5fff', '#4ade80', '#f87171', '#fbbf24', '#a78bfa', '#34d399'
 
 export default function Portfolio() {
   const [tickers, setTickers] = useState('AAPL, MSFT, GOOGL, AMZN');
+  const [benchmark, setBenchmark] = useState('SPY');
   const [result, setResult] = useState<PortfolioResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +53,7 @@ export default function Portfolio() {
       const res = await fetch('http://127.0.0.1:8000/portfolio/optimize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tickers: tickerList }),
+        body: JSON.stringify({ tickers: tickerList, benchmark }),
       });
       if (!res.ok) throw new Error('Optimization failed');
       const data = await res.json();
@@ -63,58 +77,63 @@ export default function Portfolio() {
     { label: 'Sharpe', opt: result.metrics.sharpe_ratio.toFixed(2), eq: result.equal_weight_metrics.sharpe_ratio.toFixed(2), better: result.metrics.sharpe_ratio > result.equal_weight_metrics.sharpe_ratio },
   ] : [];
 
+  // Merge history with benchmark for chart
+  const chartData = result ? result.history.map((h, i) => ({
+    date: h.date,
+    portfolio: h.value,
+    benchmark: result.benchmark?.history[i]?.value || null,
+  })) : [];
+
   return (
     <div style={{ padding: '24px 28px' }}>
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.3px' }}>Portfolio Analytics</div>
         <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>
-          Mean-variance optimization · Efficient frontier · Real market data via Yahoo Finance
+          Mean-variance optimization · CVaR · Benchmark comparison · Real market data
         </div>
       </div>
 
+      {/* Input */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ flex: 1 }}>
             <label style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px', display: 'block' }}>
               Tickers (comma separated)
             </label>
-            <input
-              type="text"
-              value={tickers}
-              onChange={e => setTickers(e.target.value)}
-              placeholder="AAPL, MSFT, GOOGL, AMZN"
-              style={{ ...inputStyle, width: '100%' }}
-            />
+            <input type="text" value={tickers} onChange={e => setTickers(e.target.value)}
+              placeholder="AAPL, MSFT, GOOGL, AMZN" style={{ ...inputStyle, width: '100%' }} />
           </div>
-          <button
-            onClick={handleOptimize}
-            disabled={loading}
-            style={{
-              padding: '10px 20px', borderRadius: '7px', border: 'none',
-              background: loading ? 'var(--border2)' : 'var(--blue)',
-              color: '#fff', fontSize: '13px', fontWeight: 500,
-              cursor: loading ? 'not-allowed' : 'pointer', marginTop: '20px',
-              whiteSpace: 'nowrap',
-            }}
-          >
+          <div style={{ width: '120px' }}>
+            <label style={{ fontSize: '11px', color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '6px', display: 'block' }}>
+              Benchmark
+            </label>
+            <input type="text" value={benchmark} onChange={e => setBenchmark(e.target.value.toUpperCase())}
+              style={{ ...inputStyle, width: '100%' }} />
+          </div>
+          <button onClick={handleOptimize} disabled={loading} style={{
+            padding: '10px 20px', borderRadius: '7px', border: 'none',
+            background: loading ? 'var(--border2)' : 'var(--blue)',
+            color: '#fff', fontSize: '13px', fontWeight: 500,
+            cursor: loading ? 'not-allowed' : 'pointer', marginTop: '20px', whiteSpace: 'nowrap',
+          }}>
             {loading ? 'Optimizing...' : 'Optimize Portfolio'}
           </button>
         </div>
-        {error && (
-          <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(220,38,38,0.1)', color: '#f87171', fontSize: '12px' }}>
-            {error}
-          </div>
-        )}
+        {error && <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(220,38,38,0.1)', color: '#f87171', fontSize: '12px' }}>{error}</div>}
       </div>
 
       {result && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '16px' }}>
+          {/* Metrics — 8 metrics now */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
             {[
               { label: 'Annual Return', value: `${result.metrics.annual_return}%`, color: result.metrics.annual_return > 0 ? '#4ade80' : '#f87171' },
               { label: 'Volatility', value: `${result.metrics.annual_volatility}%`, color: '#fbbf24' },
               { label: 'Sharpe Ratio', value: result.metrics.sharpe_ratio.toFixed(2), color: result.metrics.sharpe_ratio > 1 ? '#4ade80' : '#fbbf24' },
+              { label: 'Sortino Ratio', value: result.metrics.sortino_ratio.toFixed(2), color: result.metrics.sortino_ratio > 1 ? '#4ade80' : '#fbbf24' },
+              { label: 'Calmar Ratio', value: result.metrics.calmar_ratio.toFixed(2), color: result.metrics.calmar_ratio > 0.5 ? '#4ade80' : '#fbbf24' },
               { label: 'VaR (95%, 1d)', value: `${result.metrics.var_95_daily}%`, color: '#f87171' },
+              { label: 'CVaR (95%, 1d)', value: `${result.metrics.cvar_95_daily}%`, color: '#f87171' },
               { label: 'Max Drawdown', value: `${result.metrics.max_drawdown}%`, color: '#f87171' },
             ].map((m, i) => (
               <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '14px 16px' }}>
@@ -124,7 +143,30 @@ export default function Portfolio() {
             ))}
           </div>
 
+          {/* Benchmark comparison */}
+          {result.benchmark && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '14px' }}>Benchmark Comparison vs {result.benchmark.ticker}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px' }}>
+                {[
+                  { label: 'Portfolio Return', value: `${result.metrics.annual_return}%`, color: result.metrics.annual_return > result.benchmark.annual_return ? '#4ade80' : '#f87171' },
+                  { label: `${result.benchmark.ticker} Return`, value: `${result.benchmark.annual_return}%`, color: 'var(--text2)' },
+                  { label: 'Alpha', value: `${result.benchmark.alpha > 0 ? '+' : ''}${result.benchmark.alpha}%`, color: result.benchmark.alpha > 0 ? '#4ade80' : '#f87171' },
+                  { label: 'Tracking Error', value: `${result.benchmark.tracking_error}%`, color: '#fbbf24' },
+                  { label: 'Info Ratio', value: result.benchmark.information_ratio.toFixed(2), color: result.benchmark.information_ratio > 0 ? '#4ade80' : '#f87171' },
+                  { label: `${result.benchmark.ticker} Sharpe`, value: result.benchmark.sharpe_ratio.toFixed(2), color: 'var(--text2)' },
+                ].map((m, i) => (
+                  <div key={i} style={{ background: 'var(--surface2)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text3)', marginBottom: '6px' }}>{m.label}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: m.color }}>{m.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            {/* Weights */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>Optimized Allocation</div>
               {result.tickers.map((ticker, i) => {
@@ -162,6 +204,7 @@ export default function Portfolio() {
               </div>
             </div>
 
+            {/* Efficient Frontier */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
               <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Efficient Frontier</div>
               <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>Risk vs Return tradeoff</div>
@@ -170,30 +213,26 @@ export default function Portfolio() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="volatility" name="Volatility %" tick={{ fontSize: 10, fill: 'var(--text3)' }} label={{ value: 'Volatility %', position: 'bottom', offset: 0, fontSize: 10, fill: 'var(--text3)' }} />
                   <YAxis dataKey="return" name="Return %" tick={{ fontSize: 10, fill: 'var(--text3)' }} />
-                  <Tooltip
-                    cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }}
-                    formatter={(value: any, name: string) => [`${value}%`, name]}
-                  />
+                  <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }} formatter={(value: any, name: string) => [`${value}%`, name]} />
                   <Scatter data={result.frontier} fill="#1a5fff" opacity={0.8} />
                 </ScatterChart>
               </ResponsiveContainer>
             </div>
           </div>
 
+          {/* Performance vs benchmark */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
-            <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Portfolio Performance (60 days)</div>
-            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>Cumulative return of optimized portfolio</div>
+            <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Portfolio vs {result.benchmark?.ticker || 'Benchmark'} (60 days)</div>
+            <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>Cumulative return comparison</div>
             <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={result.history} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
+              <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text3)' }} tickFormatter={v => v.slice(5)} />
                 <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} tickFormatter={v => `${((v - 1) * 100).toFixed(0)}%`} />
-                <Tooltip
-                  contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }}
-                  formatter={(v: any) => [`${((v - 1) * 100).toFixed(2)}%`, 'Return']}
-                />
-                <Line type="monotone" dataKey="value" stroke="#1a5fff" strokeWidth={2} dot={false} />
+                <Tooltip contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }} formatter={(v: any, name: string) => [`${((v - 1) * 100).toFixed(2)}%`, name === 'portfolio' ? 'Portfolio' : result.benchmark?.ticker || 'Benchmark']} />
+                <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--text3)' }} />
+                <Line type="monotone" dataKey="portfolio" stroke="#1a5fff" strokeWidth={2} dot={false} name="portfolio" />
+                <Line type="monotone" dataKey="benchmark" stroke="#4ade80" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="benchmark" />
               </LineChart>
             </ResponsiveContainer>
           </div>

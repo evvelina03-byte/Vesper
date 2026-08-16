@@ -12,6 +12,7 @@ class PortfolioRequest(BaseModel):
     tickers: List[str]
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    benchmark: Optional[str] = "SPY"
 
 def get_returns(tickers: List[str], start: str, end: str):
     data = yf.download(tickers, start=start, end=end, auto_adjust=True, progress=False)
@@ -41,32 +42,37 @@ def max_drawdown(returns_series):
     drawdown = (cumulative - rolling_max) / rolling_max
     return float(drawdown.min())
 
+def calculate_cvar(returns_series, confidence=0.95):
+    var = np.percentile(returns_series, (1 - confidence) * 100)
+    cvar = returns_series[returns_series <= var].mean()
+    return float(var), float(cvar)
+
 @router.post("/optimize")
 def optimize_portfolio(request: PortfolioRequest):
     end = request.end_date or datetime.today().strftime('%Y-%m-%d')
     start = request.start_date or (datetime.today() - timedelta(days=365)).strftime('%Y-%m-%d')
-    
+
     tickers = [t.upper().strip() for t in request.tickers]
-    
+
     try:
         returns, prices = get_returns(tickers, start, end)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch data: {str(e)}")
-    
+
     if returns.empty:
         raise HTTPException(status_code=400, detail="No data returned for these tickers")
-    
+
     n = len(tickers)
     available_tickers = list(returns.columns)
-    
+
     # Equal weights baseline
     equal_weights = np.array([1/n] * n)
     eq_return, eq_vol, eq_sharpe = portfolio_stats(equal_weights, returns)
-    
+
     # Optimize for max Sharpe
     constraints = [{'type': 'eq', 'fun': lambda w: np.sum(w) - 1}]
     bounds = [(0.05, 0.6)] * n
-    
+
     result = minimize(
         neg_sharpe, equal_weights,
         args=(returns,),
@@ -74,19 +80,64 @@ def optimize_portfolio(request: PortfolioRequest):
         bounds=bounds,
         constraints=constraints,
     )
-    
+
     opt_weights = result.x
     opt_return, opt_vol, opt_sharpe = portfolio_stats(opt_weights, returns)
-    
-    # VaR (95%)
+
+    # Portfolio returns series
     port_returns = returns.dot(opt_weights)
-    var_95 = float(np.percentile(port_returns, 5))
+    eq_port_returns = returns.dot(equal_weights)
+
+    # VaR and CVaR
+    var_95, cvar_95 = calculate_cvar(port_returns)
     mdd = max_drawdown(port_returns)
-    
+
+    # Sortino ratio
+    downside_returns = port_returns[port_returns < 0]
+    downside_std = downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 1
+    sortino = opt_return / downside_std if downside_std > 0 else 0
+
+    # Calmar ratio
+    calmar = opt_return / abs(mdd) if mdd != 0 else 0
+
+    # Benchmark comparison
+    benchmark_data = None
+    if request.benchmark:
+        try:
+            bm_returns, _ = get_returns([request.benchmark], start, end)
+            bm_series = bm_returns.iloc[:, 0]
+            bm_aligned = bm_series.reindex(port_returns.index).fillna(0)
+            bm_annual_return = float(bm_aligned.mean() * 252)
+            bm_vol = float(bm_aligned.std() * np.sqrt(252))
+            bm_sharpe = bm_annual_return / bm_vol if bm_vol > 0 else 0
+            tracking_error = float((port_returns - bm_aligned).std() * np.sqrt(252))
+            information_ratio = float((opt_return - bm_annual_return) / tracking_error) if tracking_error > 0 else 0
+            alpha = float(opt_return - bm_annual_return)
+
+            bm_history = (1 + bm_aligned).cumprod()
+            benchmark_data = {
+                "ticker": request.benchmark,
+                "annual_return": round(bm_annual_return * 100, 2),
+                "volatility": round(bm_vol * 100, 2),
+                "sharpe_ratio": round(bm_sharpe, 4),
+                "tracking_error": round(tracking_error * 100, 2),
+                "information_ratio": round(information_ratio, 4),
+                "alpha": round(alpha * 100, 2),
+                "history": [
+                    {"date": str(d.date()), "value": round(float(v), 4)}
+                    for d, v in zip(bm_history.index[-60:], bm_history.values[-60:])
+                ],
+            }
+        except:
+            pass
+
+    # Correlation matrix
+    corr_matrix = returns.corr().round(3).to_dict()
+
     # Efficient frontier
     frontier_points = []
     target_returns = np.linspace(returns.mean().min() * 252, returns.mean().max() * 252, 20)
-    
+
     for target in target_returns:
         cons = [
             {'type': 'eq', 'fun': lambda w: np.sum(w) - 1},
@@ -103,14 +154,14 @@ def optimize_portfolio(request: PortfolioRequest):
                 frontier_points.append({'return': round(r * 100, 2), 'volatility': round(v * 100, 2), 'sharpe': round(s, 2)})
         except:
             pass
-    
+
     # Historical performance
     port_value = (1 + port_returns).cumprod()
     history = [
         {'date': str(d.date()), 'value': round(float(v), 4)}
         for d, v in zip(port_returns.index[-60:], port_value.values[-60:])
     ]
-    
+
     return {
         'tickers': available_tickers,
         'optimized_weights': {t: round(float(w), 4) for t, w in zip(available_tickers, opt_weights)},
@@ -119,7 +170,10 @@ def optimize_portfolio(request: PortfolioRequest):
             'annual_return': round(opt_return * 100, 2),
             'annual_volatility': round(opt_vol * 100, 2),
             'sharpe_ratio': round(opt_sharpe, 4),
+            'sortino_ratio': round(sortino, 4),
+            'calmar_ratio': round(calmar, 4),
             'var_95_daily': round(var_95 * 100, 2),
+            'cvar_95_daily': round(cvar_95 * 100, 2),
             'max_drawdown': round(mdd * 100, 2),
         },
         'equal_weight_metrics': {
@@ -127,8 +181,10 @@ def optimize_portfolio(request: PortfolioRequest):
             'annual_volatility': round(eq_vol * 100, 2),
             'sharpe_ratio': round(eq_sharpe, 4),
         },
+        'benchmark': benchmark_data,
         'frontier': frontier_points,
         'history': history,
+        'correlation_matrix': corr_matrix,
     }
 
 @router.get("/prices/{ticker}")

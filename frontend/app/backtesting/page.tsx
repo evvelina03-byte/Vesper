@@ -11,14 +11,19 @@ interface BacktestResult {
     cagr: number;
     sharpe_ratio: number;
     sortino_ratio: number;
+    calmar_ratio: number;
     max_drawdown: number;
     win_rate: number;
+    profit_factor: number;
     total_trades: number;
   };
   buy_hold_return: number;
   chart: Array<{ date: string; strategy: number; buy_hold: number; position: number }>;
   initial_capital: number;
   final_value: number;
+  transaction_cost_pct: number;
+  slippage_pct: number;
+  total_costs_paid: number;
 }
 
 const STRATEGIES = [
@@ -37,6 +42,8 @@ const defaultForm = {
   initial_capital: '10000',
   short_window: '20',
   long_window: '50',
+  transaction_cost: '0.1',
+  slippage: '0.05',
 };
 
 export default function Backtesting() {
@@ -60,6 +67,8 @@ export default function Backtesting() {
           initial_capital: parseFloat(form.initial_capital),
           short_window: parseInt(form.short_window),
           long_window: parseInt(form.long_window),
+          transaction_cost: parseFloat(form.transaction_cost),
+          slippage: parseFloat(form.slippage),
         }),
       });
       if (!res.ok) throw new Error('Backtest failed');
@@ -91,16 +100,14 @@ export default function Backtesting() {
       <div style={{ marginBottom: '24px' }}>
         <div style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.3px' }}>Strategy Backtesting</div>
         <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>
-          Test trading strategies on historical data · CAGR · Sharpe · Max Drawdown · Win Rate
+          Historical strategy testing · Transaction costs · Calmar · Profit Factor · Sortino
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: '16px' }}>
-        {/* Form */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
             <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '16px' }}>Parameters</div>
-
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div>
                 <label style={labelStyle}>Ticker</label>
@@ -126,24 +133,37 @@ export default function Backtesting() {
                   onChange={e => setForm({ ...form, initial_capital: e.target.value })}
                   style={inputStyle} />
               </div>
-              {(form.strategy === 'sma_crossover') && (
-                <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div>
+                  <label style={labelStyle}>Transaction Cost (%)</label>
+                  <input type="text" inputMode="decimal" value={form.transaction_cost}
+                    onChange={e => setForm({ ...form, transaction_cost: e.target.value })}
+                    style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Slippage (%)</label>
+                  <input type="text" inputMode="decimal" value={form.slippage}
+                    onChange={e => setForm({ ...form, slippage: e.target.value })}
+                    style={inputStyle} />
+                </div>
+              </div>
+              {form.strategy === 'sma_crossover' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                   <div>
-                    <label style={labelStyle}>Short Window (days)</label>
+                    <label style={labelStyle}>Short Window</label>
                     <input type="text" value={form.short_window}
                       onChange={e => setForm({ ...form, short_window: e.target.value })}
                       style={inputStyle} />
                   </div>
                   <div>
-                    <label style={labelStyle}>Long Window (days)</label>
+                    <label style={labelStyle}>Long Window</label>
                     <input type="text" value={form.long_window}
                       onChange={e => setForm({ ...form, long_window: e.target.value })}
                       style={inputStyle} />
                   </div>
-                </>
+                </div>
               )}
             </div>
-
             <button onClick={handleRun} disabled={loading} style={{
               width: '100%', marginTop: '16px', padding: '10px', borderRadius: '7px',
               border: 'none', background: loading ? 'var(--border2)' : 'var(--blue)',
@@ -152,15 +172,9 @@ export default function Backtesting() {
             }}>
               {loading ? 'Running...' : 'Run Backtest'}
             </button>
-
-            {error && (
-              <div style={{ marginTop: '10px', padding: '8px', borderRadius: '6px', background: 'rgba(220,38,38,0.1)', color: '#f87171', fontSize: '12px' }}>
-                {error}
-              </div>
-            )}
+            {error && <div style={{ marginTop: '10px', padding: '8px', borderRadius: '6px', background: 'rgba(220,38,38,0.1)', color: '#f87171', fontSize: '12px' }}>{error}</div>}
           </div>
 
-          {/* Strategy selector */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px' }}>
             <div style={{ fontSize: '12px', fontWeight: 500, marginBottom: '10px' }}>Strategy</div>
             {STRATEGIES.map(s => (
@@ -170,20 +184,16 @@ export default function Backtesting() {
                   background: form.strategy === s.value ? 'var(--blue-dim)' : 'transparent',
                   border: `1px solid ${form.strategy === s.value ? 'rgba(26,95,255,0.3)' : 'transparent'}`,
                 }}>
-                <div style={{ fontSize: '12px', fontWeight: 500, color: form.strategy === s.value ? 'var(--blue)' : 'var(--text2)' }}>
-                  {s.label}
-                </div>
+                <div style={{ fontSize: '12px', fontWeight: 500, color: form.strategy === s.value ? 'var(--blue)' : 'var(--text2)' }}>{s.label}</div>
                 <div style={{ fontSize: '10px', color: 'var(--text3)', marginTop: '2px' }}>{s.desc}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Results */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {result ? (
             <>
-              {/* Summary banner */}
               <div style={{
                 background: outperformed ? 'rgba(74,222,128,0.08)' : 'rgba(248,113,113,0.08)',
                 border: `1px solid ${outperformed ? 'rgba(74,222,128,0.3)' : 'rgba(248,113,113,0.3)'}`,
@@ -197,6 +207,9 @@ export default function Backtesting() {
                   <div style={{ fontSize: '11px', color: 'var(--text3)', marginTop: '3px' }}>
                     {result.ticker} · {STRATEGIES.find(s => s.value === result.strategy)?.label} · ${result.initial_capital.toLocaleString()} → ${result.final_value.toLocaleString()}
                   </div>
+                  <div style={{ fontSize: '11px', color: '#f87171', marginTop: '3px' }}>
+                    Transaction costs: {result.transaction_cost_pct}% + {result.slippage_pct}% slippage · Total paid: ${result.total_costs_paid.toLocaleString()}
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div style={{ fontSize: '22px', fontWeight: 600, color: result.metrics.total_return >= 0 ? '#4ade80' : '#f87171' }}>
@@ -206,14 +219,15 @@ export default function Backtesting() {
                 </div>
               </div>
 
-              {/* Metrics */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
                 {[
                   { label: 'CAGR', value: `${result.metrics.cagr}%`, color: result.metrics.cagr >= 0 ? '#4ade80' : '#f87171' },
                   { label: 'Sharpe', value: result.metrics.sharpe_ratio.toFixed(2), color: result.metrics.sharpe_ratio > 1 ? '#4ade80' : '#fbbf24' },
                   { label: 'Sortino', value: result.metrics.sortino_ratio.toFixed(2), color: result.metrics.sortino_ratio > 1 ? '#4ade80' : '#fbbf24' },
+                  { label: 'Calmar', value: result.metrics.calmar_ratio.toFixed(2), color: result.metrics.calmar_ratio > 0.5 ? '#4ade80' : '#fbbf24' },
                   { label: 'Max Drawdown', value: `${result.metrics.max_drawdown}%`, color: '#f87171' },
                   { label: 'Win Rate', value: `${result.metrics.win_rate}%`, color: result.metrics.win_rate > 50 ? '#4ade80' : '#f87171' },
+                  { label: 'Profit Factor', value: result.metrics.profit_factor.toFixed(2), color: result.metrics.profit_factor > 1 ? '#4ade80' : '#f87171' },
                   { label: 'Trades', value: String(result.metrics.total_trades), color: 'var(--text)' },
                 ].map((m, i) => (
                   <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 14px' }}>
@@ -223,24 +237,20 @@ export default function Backtesting() {
                 ))}
               </div>
 
-              {/* Equity curve */}
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '18px' }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, marginBottom: '4px' }}>Equity Curve</div>
                 <div style={{ fontSize: '11px', color: 'var(--text3)', marginBottom: '14px' }}>
-                  Strategy vs Buy & Hold — starting from ${result.initial_capital.toLocaleString()}
+                  Strategy vs Buy & Hold · After {result.transaction_cost_pct}% transaction costs + {result.slippage_pct}% slippage
                 </div>
                 <ResponsiveContainer width="100%" height={260}>
                   <LineChart data={result.chart} margin={{ top: 5, right: 10, bottom: 5, left: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                     <XAxis dataKey="date" tick={{ fontSize: 9, fill: 'var(--text3)' }} tickFormatter={v => v.slice(0, 7)} />
                     <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
-                    <Tooltip
-                      contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }}
-                      formatter={(v: any, name: string) => [`$${parseFloat(v).toFixed(2)}`, name === 'strategy' ? 'Strategy' : 'Buy & Hold']}
-                    />
+                    <Tooltip contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }} formatter={(v: any, name: string) => [`$${parseFloat(v).toFixed(2)}`, name === 'strategy' ? 'Strategy' : 'Buy & Hold']} />
                     <Legend wrapperStyle={{ fontSize: '11px', color: 'var(--text3)' }} />
-                    <Line type="monotone" dataKey="strategy" stroke="#1a5fff" strokeWidth={2} dot={false} name="Strategy" />
-                    <Line type="monotone" dataKey="buy_hold" stroke="#4ade80" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="Buy & Hold" />
+                    <Line type="monotone" dataKey="strategy" stroke="#1a5fff" strokeWidth={2} dot={false} name="strategy" />
+                    <Line type="monotone" dataKey="buy_hold" stroke="#4ade80" strokeWidth={1.5} dot={false} strokeDasharray="5 5" name="buy_hold" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
