@@ -1,4 +1,4 @@
-**VESPER**
+**VESPER — AI-Powered Financial Intelligence Platform**
 
 Vesper is a full-stack financial analytics platform built with FastAPI, Next.js, PostgreSQL, and machine learning. It covers the full spectrum of quantitative finance, risk, and business intelligence across 12 modules.
 
@@ -49,3 +49,10 @@ RAG-based document analysis using Gemini. Upload any PDF: annual reports, earnin
 **ML Model Monitoring**
 
 MLOps dashboard showing the health of both deployed models. For each model: version, status (healthy/missing), last trained date, model size, total prediction volume, 7-day prediction count, key performance metrics, and a drift indicator. Includes trend charts for daily prediction volume and average scores over the last 30 days. Full audit log showing every prediction with timestamp, action, recommendation, and probability of default.
+
+**Technical Stack**
+
+**Backend**: Python, FastAPI, SQLAlchemy, PostgreSQL, XGBoost, scikit-learn, SHAP, scipy, yfinance, Google Gemini
+
+**Frontend**: Next.js 14, TypeScript, Tailwind CSS, Recharts
+Infrastructure: Docker-ready, GitHub, deployable to Vercel + Railway
