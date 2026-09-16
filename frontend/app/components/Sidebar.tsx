@@ -15,6 +15,7 @@ const navItems = [
   { label: 'AI Assistant', href: '/assistant', icon: '✦' },
   { label: 'Markets', href: '/market', icon: '◈' },
   { label: 'Intelligence', href: '/intelligence', icon: '≡' },
+  { label: 'ML Monitoring', href: '/monitoring', icon: '◉' },
 ];
 
 export default function Sidebar() {
