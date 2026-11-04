@@ -292,7 +292,7 @@ export default function Valuation() {
                     <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} tickFormatter={v => `$${(v/1e9).toFixed(0)}B`} />
                     <Tooltip
                       contentStyle={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', fontSize: '11px' }}
-                      formatter={(v: any, name: string) => [formatB(v), name === 'revenue' ? 'Revenue' : name === 'fcf' ? 'FCF' : 'PV of FCF']}
+                      formatter={(v: any, name?: string | number) => [formatB(v), name === 'revenue' ? 'Revenue' : name === 'fcf' ? 'FCF' : 'PV of FCF']}
                     />
                     <Bar dataKey="revenue" fill="#1a5fff" opacity={0.7} name="revenue" radius={[3,3,0,0]} />
                     <Bar dataKey="fcf" fill="#4ade80" opacity={0.8} name="fcf" radius={[3,3,0,0]} />

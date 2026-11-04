@@ -16,6 +16,7 @@ const navItems = [
   { label: 'Markets', href: '/market', icon: '◈' },
   { label: 'Intelligence', href: '/intelligence', icon: '≡' },
   { label: 'ML Monitoring', href: '/monitoring', icon: '◉' },
+  { label: 'Architecture', href: '/architecture', icon: '⬡' },
 ];
 
 export default function Sidebar() {
